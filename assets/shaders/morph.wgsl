@@ -1,5 +1,5 @@
 #import bevy_pbr::{
-    pbr_fragment::pbr_input_from_vertex_output,
+    pbr_fragment::pbr_input_from_standard_material ,
     forward_io::{VertexOutput, FragmentOutput}, 
     pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
     mesh_functions::{get_world_from_local, mesh_position_local_to_world, mesh_normal_local_to_world},
@@ -12,7 +12,7 @@ struct MorphMaterial {
     blue: f32,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0)
+@group(#{MATERIAL_BIND_GROUP}) @binding(100)
 var<uniform> weights: MorphMaterial;
 
 struct Vertex {
@@ -42,7 +42,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     out.world_position = mesh_position_local_to_world(model, vec4<f32>(displaced_position, 1.0));
     out.position = position_world_to_clip(out.world_position.xyz);
-    out.color = vec4<f32>(1.0, 1.0, 0.0, 1.0); // white since it's just applied multiplicatively in fragment
+    out.color = vec4<f32>(1.0, 1.0, 1.0, 1.0); // white since it's just applied multiplicatively in fragment
 
     // and pass these on i guess
     out.world_normal = mesh_normal_local_to_world(vertex.normal, vertex.instance_index);
@@ -57,7 +57,7 @@ fn fragment(
     in: VertexOutput,
     @builtin(front_facing) is_front: bool,
 ) -> @location(0) vec4<f32> {
-    var pbr_input = pbr_input_from_vertex_output(in, is_front, false);
+    var pbr_input = pbr_input_from_standard_material (in, is_front);
     
     let x_tangent = dpdx(in.world_position.xyz);
     let y_tangent = dpdy(in.world_position.xyz);

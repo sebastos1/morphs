@@ -10,7 +10,7 @@ struct MorphMaterial {
     blue: f32,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0)
+@group(#{MATERIAL_BIND_GROUP}) @binding(100)
 var<uniform> weights: MorphMaterial;
 
 struct Vertex {

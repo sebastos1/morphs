@@ -1,8 +1,8 @@
 use bevy::dev_tools::fps_overlay::FpsOverlayPlugin;
 use bevy::input::mouse::{AccumulatedMouseMotion, MouseWheel};
-use bevy::mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef};
-use bevy::pbr::Material;
-use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
+use bevy::mesh::{Mesh, MeshVertexBufferLayoutRef};
+use bevy::pbr::{ExtendedMaterial, MaterialExtension};
+use bevy::pbr::{MaterialExtensionKey, MaterialExtensionPipeline};
 use bevy::prelude::*;
 use bevy::render::render_resource::ShaderType;
 use bevy::render::render_resource::{
@@ -19,16 +19,13 @@ struct MyMorphWeights {
     blue: f32,
 }
 
-#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
-struct MorphMaterial {
-    #[uniform(0)]
+#[derive(Asset, AsBindGroup, TypePath, Clone)]
+struct MorphExtension {
+    #[uniform(100)]
     weights: MyMorphWeights,
-
-    #[uniform(1)]
-    base_color: LinearRgba,
 }
 
-impl Material for MorphMaterial {
+impl MaterialExtension for MorphExtension {
     fn vertex_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }
@@ -46,10 +43,10 @@ impl Material for MorphMaterial {
     }
 
     fn specialize(
-        _pipeline: &MaterialPipeline,
+        _pipeline: &MaterialExtensionPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayoutRef,
-        _key: MaterialPipelineKey<Self>,
+        _key: MaterialExtensionKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         let vertex_layout = layout.0.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
@@ -61,6 +58,8 @@ impl Material for MorphMaterial {
         Ok(())
     }
 }
+
+type MorphMaterial = ExtendedMaterial<StandardMaterial, MorphExtension>;
 
 fn main() {
     App::new()
@@ -104,11 +103,16 @@ fn setup(
     commands.spawn((
         Mesh3d(cube2),
         MeshMaterial3d(materials.add(MorphMaterial {
-            base_color: LinearRgba::rgb(0.6, 0.6, 0.0),
-            weights: MyMorphWeights {
-                red: 1.0,
-                green: 0.0,
-                blue: 0.0,
+            base: StandardMaterial {
+                base_color_texture: Some(asset_server.load("image.png")),
+                ..default()
+            },
+            extension: MorphExtension {
+                weights: MyMorphWeights {
+                    red: 1.0,
+                    green: 0.0,
+                    blue: 0.0,
+                },
             },
         })),
         Transform::from_xyz(1.5, 0.0, -1.5)
@@ -215,30 +219,32 @@ fn control_morph_weights(
 
     for (_id, material) in materials.iter_mut() {
         if keyboard.pressed(KeyCode::KeyQ) {
-            material.weights.red = (material.weights.red + delta).min(1.0);
+            material.extension.weights.red = (material.extension.weights.red + delta).min(1.0);
         }
         if keyboard.pressed(KeyCode::KeyA) {
-            material.weights.red = (material.weights.red - delta).max(0.0);
+            material.extension.weights.red = (material.extension.weights.red - delta).max(0.0);
         }
 
         if keyboard.pressed(KeyCode::KeyW) {
-            material.weights.green = (material.weights.green + delta).min(1.0);
+            material.extension.weights.green = (material.extension.weights.green + delta).min(1.0);
         }
         if keyboard.pressed(KeyCode::KeyS) {
-            material.weights.green = (material.weights.green - delta).max(0.0);
+            material.extension.weights.green = (material.extension.weights.green - delta).max(0.0);
         }
 
         if keyboard.pressed(KeyCode::KeyE) {
-            material.weights.blue = (material.weights.blue + delta).min(1.0);
+            material.extension.weights.blue = (material.extension.weights.blue + delta).min(1.0);
         }
         if keyboard.pressed(KeyCode::KeyD) {
-            material.weights.blue = (material.weights.blue - delta).max(0.0);
+            material.extension.weights.blue = (material.extension.weights.blue - delta).max(0.0);
         }
 
         if keyboard.just_pressed(KeyCode::Space) {
             println!(
                 "Red: {:.2}, Green: {:.2}, Blue: {:.2}",
-                material.weights.red, material.weights.green, material.weights.blue
+                material.extension.weights.red,
+                material.extension.weights.green,
+                material.extension.weights.blue
             );
         }
     }
