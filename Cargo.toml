@@ -10,5 +10,5 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = { version = "0.16.1", features = ["dynamic_linking"] }
+bevy = { version = "0.17.1", features = ["dynamic_linking", "bevy_dev_tools"] }
 avian3d = "0.3"
