@@ -1,7 +1,7 @@
 use bevy::dev_tools::fps_overlay::FpsOverlayPlugin;
 use bevy::input::mouse::{AccumulatedMouseMotion, MouseWheel};
 use bevy::mesh::{Mesh, MeshVertexBufferLayoutRef};
-use bevy::pbr::{ExtendedMaterial, MaterialExtension};
+use bevy::pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod};
 use bevy::pbr::{MaterialExtensionKey, MaterialExtensionPipeline};
 use bevy::prelude::*;
 use bevy::render::render_resource::ShaderType;
@@ -38,10 +38,6 @@ impl MaterialExtension for MorphExtension {
         "shaders/morph_prepass.wgsl".into()
     }
 
-    fn prepass_fragment_shader() -> ShaderRef {
-        "shaders/morph_prepass.wgsl".into()
-    }
-
     fn specialize(
         _pipeline: &MaterialExtensionPipeline,
         descriptor: &mut RenderPipelineDescriptor,
@@ -68,6 +64,7 @@ fn main() {
         .add_systems(
             Update,
             (
+                setup_player_materials,
                 control_morph_targets,
                 control_morph_weights,
                 camera_orbit,
@@ -85,6 +82,9 @@ struct RotatingLight {
     angle: f32,
 }
 
+#[derive(Component)]
+struct PlayerCharacter;
+
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -95,6 +95,13 @@ fn setup(
     let cube1 = asset_server.load("cube_morph_test.glb#Scene0");
     let pole = asset_server.load("pole.glb#Scene0");
     let cube2 = asset_server.load("bruh2.glb#Mesh0/Primitive0");
+    let playa = asset_server.load("playa.glb#Scene0");
+
+    commands.spawn((
+        SceneRoot(playa),
+        Transform::from_xyz(1.5, 0.0, 1.5).with_scale(Vec3::ONE * 2.0),
+        PlayerCharacter,
+    ));
 
     commands.spawn((SceneRoot(cube1), Transform::from_xyz(-1.5, 0.0, 1.5)));
 
@@ -105,6 +112,7 @@ fn setup(
         MeshMaterial3d(materials.add(MorphMaterial {
             base: StandardMaterial {
                 base_color_texture: Some(asset_server.load("image.png")),
+                opaque_render_method: OpaqueRendererMethod::Forward,
                 ..default()
             },
             extension: MorphExtension {
@@ -147,6 +155,44 @@ fn setup(
             angle: 0.0,
         },
     ));
+}
+
+fn setup_player_materials(
+    mut commands: Commands,
+    player_query: Query<Entity, With<PlayerCharacter>>,
+    children_query: Query<&Children>,
+    mesh_query: Query<
+        (Entity, &MeshMaterial3d<StandardMaterial>),
+        Without<MeshMaterial3d<MorphMaterial>>,
+    >,
+    mut morph_materials: ResMut<Assets<MorphMaterial>>,
+    standard_materials: Res<Assets<StandardMaterial>>,
+) {
+    for player_entity in &player_query {
+        for descendant in children_query.iter_descendants(player_entity) {
+            if let Ok((entity, material_handle)) = mesh_query.get(descendant) {
+                // Preserve the original material's properties
+                let base_material = if let Some(mat) = standard_materials.get(&material_handle.0) {
+                    mat.clone()
+                } else {
+                    StandardMaterial::default()
+                };
+
+                commands
+                    .entity(entity)
+                    .insert(MeshMaterial3d(morph_materials.add(MorphMaterial {
+                        base: base_material,
+                        extension: MorphExtension {
+                            weights: MyMorphWeights {
+                                red: 0.0,
+                                green: 0.0,
+                                blue: 0.0,
+                            },
+                        },
+                    })));
+            }
+        }
+    }
 }
 
 fn rotate_light(
